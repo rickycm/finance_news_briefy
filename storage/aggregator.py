@@ -64,6 +64,7 @@ def aggregate_source_trends(items_list: List[List[Trend]]) -> List[Trend]:
                     "title": trend.title,
                     "url": trend.url,
                     "description": trend.description,
+                    "publish_time": trend.publish_time,
                     "count": 0,
                     "total_rank": 0,
                     "scores": [],
@@ -92,6 +93,7 @@ def aggregate_source_trends(items_list: List[List[Trend]]) -> List[Trend]:
                 title=stats["title"],
                 url=stats["url"],
                 description=stats.get("description"),
+                publish_time=stats.get("publish_time"),
                 score=final_score,
             )
         )
