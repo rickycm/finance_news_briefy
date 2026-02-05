@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List
 
 import httpx
@@ -52,12 +53,18 @@ class WallstreetcnFetcher(BaseFetcher):
             if not title:
                 continue
 
+            display_time = resource.get("display_time")
+            publish_time = None
+            if display_time:
+                publish_time = datetime.fromtimestamp(display_time).strftime("%Y-%m-%d %H:%M")
+
             items.append(
                 Trend(
                     id=str(item_id),
                     title=title,
                     url=uri,
                     description=resource.get("content_text"),
+                    publish_time=publish_time,
                 )
             )
 

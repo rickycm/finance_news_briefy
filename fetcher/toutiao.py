@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List
 
 import httpx
@@ -22,6 +23,7 @@ class ToutiaoFetcher(BaseFetcher):
             data = response.json()
 
         items = []
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
         for item in data.get("data", []):
             cluster_id = item.get("ClusterIdStr", "")
             if not cluster_id:
@@ -34,6 +36,7 @@ class ToutiaoFetcher(BaseFetcher):
                     title=item.get("Title", ""),
                     url=f"https://www.toutiao.com/trending/{cluster_id}/",
                     score=int(hot_value) if hot_value else None,
+                    publish_time=current_time,
                 )
             )
 

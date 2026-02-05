@@ -1,4 +1,5 @@
 import hashlib
+from datetime import datetime
 from typing import List
 from urllib.parse import urlencode
 
@@ -61,12 +62,18 @@ class CailianFetcher(BaseFetcher):
             if not title:
                 continue
 
+            ctime = item.get("ctime")
+            publish_time = None
+            if ctime:
+                publish_time = datetime.fromtimestamp(ctime).strftime("%Y-%m-%d %H:%M")
+
             items.append(
                 Trend(
                     id=str(item_id),
                     title=title,
                     url=f"https://www.cls.cn/detail/{item_id}",
                     description=item.get("brief"),
+                    publish_time=publish_time,
                 )
             )
 

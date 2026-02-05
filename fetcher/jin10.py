@@ -56,12 +56,17 @@ class Jin10Fetcher(BaseFetcher):
             if not item_id:
                 continue
 
+            # 金十数据返回的时间格式: 2026-02-06 00:57:44
+            item_time = item.get("time", "")
+            publish_time = item_time[:16] if item_time else None
+
             items.append(
                 Trend(
                     id=str(item_id),
                     title=item_title,
                     url=f"https://flash.jin10.com/detail/{item_id}",
                     description=item_desc,
+                    publish_time=publish_time,
                 )
             )
 

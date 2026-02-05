@@ -25,3 +25,6 @@ class Trend:
 
     timestamp: Optional[str] = None
     """时间戳，格式：YYYY-MM-DD HH:MM"""
+
+    publish_time: Optional[str] = None
+    """新闻发布时间，格式：YYYY-MM-DD HH:MM"""

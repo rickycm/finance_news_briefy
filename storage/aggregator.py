@@ -184,9 +184,9 @@ class DailyAggregator:
             lines.append(f"\n## {source_data['name']}\n")
 
             for i, item in enumerate(source_data["ranked_items"], 1):
-                ts = item.timestamp[:16] if item.timestamp else ""
-                ts_str = f" [{ts}]" if ts else ""
-                lines.append(f"{i}. [{item.title}]({item.url}){ts_str}\n")
+                pt = item.publish_time if item.publish_time else ""
+                pt_str = f" [{pt}]" if pt else ""
+                lines.append(f"{i}. [{item.title}]({item.url}){pt_str}\n")
             lines.append("\n")
 
         return "".join(lines)

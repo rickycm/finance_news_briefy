@@ -933,12 +933,8 @@
             linkEl.innerHTML = sanitizeTitle(item.title);
           }
           const dateEl = itemFragment.querySelector(".item-date");
-          if (dateEl) {
-            if (item.timestamp) {
-              dateEl.textContent = item.timestamp;
-            } else if (item.date) {
-              dateEl.textContent = item.date;
-            }
+          if (dateEl && item.publish_time) {
+            dateEl.textContent = item.publish_time;
           }
           itemsList.appendChild(itemFragment);
         });

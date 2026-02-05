@@ -68,8 +68,8 @@ def parse_markdown(date_str: str) -> Dict[str, object]:
                 rank = int(match.group(1))
                 title = match.group(2).strip()
                 link = match.group(3).strip()
-                timestamp = match.group(4)
-                current["items"].append({"rank": rank, "title": title, "link": link, "date": date_str, "timestamp": timestamp})
+                publish_time = match.group(4)
+                current["items"].append({"rank": rank, "title": title, "link": link, "date": date_str, "publish_time": publish_time})
 
     return {
         "title": title_line or f"{date_str} 热门资讯",

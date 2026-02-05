@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime
 from typing import List
 
 import httpx
@@ -38,11 +39,15 @@ class IfengFetcher(BaseFetcher):
             if not news_url:
                 continue
 
+            news_time = news.get("newsTime", "")
+            publish_time = news_time[:16] if news_time else None
+
             items.append(
                 Trend(
                     id=news_url,
                     title=news.get("title", ""),
                     url=news_url,
+                    publish_time=publish_time,
                 )
             )
 

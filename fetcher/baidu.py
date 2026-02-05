@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime
 from typing import List
 from urllib.parse import unquote
 
@@ -35,13 +36,13 @@ class BaiduFetcher(BaseFetcher):
 
         content = cards[0].get("content", [])
         items = []
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         for item in content:
             if item.get("isTop"):
                 continue
 
             raw_url = item.get("rawUrl", "")
-            # 解码URL中的中文字符，使其更易读
             decoded_url = unquote(raw_url)
 
             items.append(
@@ -51,6 +52,7 @@ class BaiduFetcher(BaseFetcher):
                     url=decoded_url,
                     description=item.get("desc"),
                     score=int(item.get("hotScore")),
+                    publish_time=current_time,
                 )
             )
 
