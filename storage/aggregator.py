@@ -30,7 +30,7 @@ SOURCES_CONFIG = {
     },
     "baidu": {
         "name": "百度热搜",
-        "order": 3,
+        "order": 7,  # 移到最后一个
     },
     "jin10": {
         "name": "金十数据",

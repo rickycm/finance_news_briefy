@@ -31,7 +31,9 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
     scheduler.start()
-    logger.info(f"Scheduler started: fetch and aggregate every {cfg.fetch_interval_minutes} minutes")
+    logger.info(
+        f"Scheduler started: fetch and aggregate every {cfg.fetch_interval_minutes} minutes"
+    )
 
     logger.info("Running initial fetch and aggregate...")
     asyncio.create_task(scheduled_task())
@@ -86,7 +88,7 @@ async def get_audio(date: str):
 
 
 def main():
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=9000)
 
 
 if __name__ == "__main__":
