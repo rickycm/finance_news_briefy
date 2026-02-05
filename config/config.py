@@ -29,6 +29,9 @@ class Config:
     audio_dir: Path
     temp_dir: Path
 
+    # Scheduler
+    fetch_interval_minutes: int
+
     @classmethod
     def from_env(cls) -> "Config":
         """Load configuration from environment variables"""
@@ -43,6 +46,7 @@ class Config:
             summaries_dir=Path("data/summaries"),
             audio_dir=Path("data/audio"),
             temp_dir=Path("temp"),
+            fetch_interval_minutes=int(os.getenv("FETCH_INTERVAL_MINUTES", "30")),
         )
 
 
