@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Dict, List, Sequence
 
 BASE_DIR = Path(__file__).parent.parent
-DATA_DIR = BASE_DIR / "data"
 TEMPLATE_PATH = Path(__file__).parent / "templates" / "trending.html"
 OUTPUT_PATH = BASE_DIR / "trending.html"
 
@@ -31,14 +30,14 @@ SOURCE_PRESENTATION: Dict[str, Dict[str, str]] = {
 
 def get_available_dates() -> List[str]:
     dates: List[str] = []
-    for md_file in DATA_DIR.glob("*.md"):
+    for md_file in cfg.data_dir.glob("*.md"):
         if DATE_FILE_PATTERN.fullmatch(md_file.stem):
             dates.append(md_file.stem)
     return sorted(dates, reverse=True)
 
 
 def parse_markdown(date_str: str) -> Dict[str, object]:
-    md_path = DATA_DIR / f"{date_str}.md"
+    md_path = cfg.data_dir / f"{date_str}.md"
     if not md_path.exists():
         raise FileNotFoundError(f"数据文件不存在：{md_path}")
 

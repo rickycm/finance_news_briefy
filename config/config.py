@@ -42,10 +42,10 @@ class Config:
             llm_api_key=os.getenv("LLM_API_KEY", ""),
             llm_model=os.getenv("LLM_MODEL", ""),
             llm_api_base=os.getenv("LLM_API_BASE", ""),
-            data_dir=Path("data"),
-            summaries_dir=Path("data/summaries"),
-            audio_dir=Path("data/audio"),
-            temp_dir=Path("temp"),
+            data_dir=Path(os.getenv("DATA_DIR", "data")),
+            summaries_dir=Path(os.getenv("DATA_DIR", "data")) / "summaries",
+            audio_dir=Path(os.getenv("DATA_DIR", "data")) / "audio",
+            temp_dir=Path(os.getenv("TEMP_DIR", "temp")),
             fetch_interval_minutes=int(os.getenv("FETCH_INTERVAL_MINUTES", "30")),
         )
 
