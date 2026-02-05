@@ -27,7 +27,7 @@ async def fetch_source(source_id: str):
                 logger.info(f"     {item.description[:50]}...")
 
         storage = CacheStorage()
-        storage.save(source_id, items
+        storage.save(source_id, items)
         logger.info(f"✅ {source_id} - 成功")
         return True
     except Exception as e:
