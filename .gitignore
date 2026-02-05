@@ -28,6 +28,7 @@ MANIFEST
 
 # Environments
 .venv
+.env
 
 # Cython debug symbols
 cython_debug/
