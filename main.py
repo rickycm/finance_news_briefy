@@ -26,12 +26,12 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         scheduled_task,
         "interval",
-        minutes=30,
+        minutes=cfg.fetch_interval_minutes,
         id="fetch_and_aggregate",
         replace_existing=True,
     )
     scheduler.start()
-    logger.info("Scheduler started: fetch and aggregate every 30 minutes")
+    logger.info(f"Scheduler started: fetch and aggregate every {cfg.fetch_interval_minutes} minutes")
 
     logger.info("Running initial fetch and aggregate...")
     asyncio.create_task(scheduled_task())

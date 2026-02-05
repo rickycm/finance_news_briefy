@@ -767,7 +767,7 @@
         <div class="stat-card">
           <span class="stat-icon">⚡</span>
           <span class="stat-label">实时更新</span>
-          <span class="stat-value">每5分钟</span>
+          <span class="stat-value">每<span id="fetch-interval">5</span>分钟</span>
         </div>
         <div class="stat-card">
           <span class="stat-icon">🔥</span>
@@ -949,6 +949,11 @@
       const itemCount = document.getElementById("item-count");
       if (itemCount) {
         itemCount.textContent = `${data.item_count}条`;
+      }
+
+      const fetchInterval = document.getElementById("fetch-interval");
+      if (fetchInterval && data.fetch_interval_minutes) {
+        fetchInterval.textContent = data.fetch_interval_minutes;
       }
 
       // 渲染卡片

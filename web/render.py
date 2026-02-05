@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Sequence
@@ -11,6 +12,9 @@ BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
 TEMPLATE_PATH = Path(__file__).parent / "templates" / "trending.html"
 OUTPUT_PATH = BASE_DIR / "trending.html"
+
+sys.path.insert(0, str(BASE_DIR))
+from config import cfg
 
 DATE_FILE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
 ITEM_LINE_PATTERN = re.compile(r"^(\d+)\.\s+\[(.+?)\]\((.+?)\)")
@@ -96,6 +100,7 @@ def render_page(selected_date: str | None = None) -> str:
         "source_count": len(sources),
         "item_count": total_items,
         "build_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "fetch_interval_minutes": cfg.fetch_interval_minutes,
     }
 
     # 读取模板并替换占位符
