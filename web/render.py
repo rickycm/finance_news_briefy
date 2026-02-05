@@ -17,7 +17,7 @@ sys.path.insert(0, str(BASE_DIR))
 from config import cfg
 
 DATE_FILE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
-ITEM_LINE_PATTERN = re.compile(r"^(\d+)\.\s+\[(.+?)\]\((.+?)\)")
+ITEM_LINE_PATTERN = re.compile(r"^(\d+)\.\s+\[(.+?)\]\((.+?)\)(?:\s+\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\])?")
 
 SOURCE_PRESENTATION: Dict[str, Dict[str, str]] = {
     "财联社": {"icon": "💰", "color_class": "red"},
@@ -68,7 +68,8 @@ def parse_markdown(date_str: str) -> Dict[str, object]:
                 rank = int(match.group(1))
                 title = match.group(2).strip()
                 link = match.group(3).strip()
-                current["items"].append({"rank": rank, "title": title, "link": link})
+                timestamp = match.group(4)
+                current["items"].append({"rank": rank, "title": title, "link": link, "date": date_str, "timestamp": timestamp})
 
     return {
         "title": title_line or f"{date_str} 热门资讯",

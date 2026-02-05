@@ -540,6 +540,12 @@
       background-clip: text;
     }
 
+    .source-count {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-left: 4px;
+    }
+
     .source-header-right {
       display: flex;
       align-items: center;
@@ -648,15 +654,16 @@
       text-decoration: none;
       transition: all 0.2s ease;
       line-height: 1.4;
-      display: -webkit-box;
-      line-clamp: 2;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
     }
 
     .item:hover .item-title {
       color: #fbbf24;
+    }
+
+    .item-date {
+      font-size: 0.6875rem;
+      color: #6b7280;
+      margin-top: 2px;
     }
 
     /* Footer */
@@ -805,6 +812,7 @@
         <div class="source-header-left">
           <span class="source-icon"></span>
           <div class="source-name"></div>
+          <span class="source-count">(0)</span>
         </div>
         <div class="source-header-right">
           <span class="refresh-icon">
@@ -825,6 +833,7 @@
       <div class="rank"></div>
       <div class="item-content">
         <a class="item-title" target="_blank" rel="noopener noreferrer"></a>
+        <div class="item-date"></div>
       </div>
     </div>
   </template>
@@ -904,6 +913,11 @@
         nameEl.textContent = source.name || "";
       }
 
+      const countEl = fragment.querySelector(".source-count");
+      if (countEl) {
+        countEl.textContent = `(${items.length})`;
+      }
+
       const itemsList = fragment.querySelector(".items-list");
       if (itemsList) {
         itemsList.innerHTML = "";
@@ -917,6 +931,14 @@
           if (linkEl) {
             linkEl.href = item.link;
             linkEl.innerHTML = sanitizeTitle(item.title);
+          }
+          const dateEl = itemFragment.querySelector(".item-date");
+          if (dateEl) {
+            if (item.timestamp) {
+              dateEl.textContent = item.timestamp;
+            } else if (item.date) {
+              dateEl.textContent = item.date;
+            }
           }
           itemsList.appendChild(itemFragment);
         });

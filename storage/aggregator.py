@@ -127,6 +127,9 @@ class DailyAggregator:
                     with open(json_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         items_dict = data.get("items", [])
+                        timestamp = data.get("timestamp", "")
+                        for item in items_dict:
+                            item["timestamp"] = timestamp
                         items = [Trend(**item) for item in items_dict]
                         items_list.append(items)
                 except Exception as e:
@@ -181,7 +184,9 @@ class DailyAggregator:
             lines.append(f"\n## {source_data['name']}\n")
 
             for i, item in enumerate(source_data["ranked_items"], 1):
-                lines.append(f"{i}. [{item.title}]({item.url})\n")
+                ts = item.timestamp[:16] if item.timestamp else ""
+                ts_str = f" [{ts}]" if ts else ""
+                lines.append(f"{i}. [{item.title}]({item.url}){ts_str}\n")
             lines.append("\n")
 
         return "".join(lines)
