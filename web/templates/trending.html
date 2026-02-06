@@ -1125,7 +1125,7 @@
       }, 2000);
     }
 
-    // 加载摘要数据
+    // 加载摘要数据（带实时进度更新）
     async function loadSummaryData() {
       if (!data?.selected_date) return;
 
@@ -1135,43 +1135,39 @@
         '<div style="text-align: center; color: #9ca3af;">加载中...</div>';
 
       try {
-        const url = `/api/summary/${data.selected_date}`;
+        const url = `/api/summary-progress/${data.selected_date}`;
         const response = await fetch(url);
 
         if (!response.ok) {
           if (response.status === 404) {
             summaryText.innerHTML =
-              '<div style="text-align: center; color: #9ca3af;">暂无摘要数据</div>';
+              '<div style="text-align: center; color: #9ca3af;">暂无摘要数据，点击刷新按钮生成</div>';
             return;
           }
           throw new Error(`获取摘要失败: ${response.status}`);
         }
 
-        const summaryData = await response.json();
+        const result = await response.json();
 
-        // 渲染 HTML 格式的摘要
-        const template = document.getElementById("summary-item-template");
-        summaryText.innerHTML = "";
-        summaryData.news?.forEach((item, index) => {
-          const fragment = template.content.cloneNode(true);
-          const rankEl = fragment.querySelector(".summary-item-rank");
-          const linkEl = fragment.querySelector("a");
-          const sourceEl = fragment.querySelector(".summary-item-source");
-          const contentEl = fragment.querySelector(".summary-item-content");
-
-          if (rankEl) rankEl.textContent = index + 1;
-          if (linkEl) {
-            linkEl.href = item.url;
-            linkEl.innerHTML = sanitizeTitle(item.title);
-          }
-          if (sourceEl) sourceEl.textContent = `[${item.source_name}]`;
-          if (contentEl && item.summary) {
-            contentEl.innerHTML = item.summary.replace(/\n/g, "<br>");
-          }
-
-          summaryText.appendChild(fragment);
-        });
-        summaryDataLoaded = true;
+        if (result.status === "generating" && result.progress) {
+          // 正在生成，显示进度
+          const p = result.progress;
+          const percent = Math.round((p.current / p.total) * 100);
+          summaryText.innerHTML = `
+            <div style="text-align: center; color: #9ca3af;">
+              <div style="font-size: 1.5rem; margin-bottom: 12px;">⏳ 生成中...</div>
+              <div style="font-size: 0.875rem;">${p.current}/${p.total} 条摘要</div>
+              <div style="margin-top: 12px; width: 200px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-left: auto; margin-right: auto;">
+                <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #fbbf24, #f59e0b); transition: width 0.3s;"></div>
+              </div>
+            </div>
+          `;
+          // 开始轮询
+          startPollingProgress(data.selected_date);
+        } else if (result.summary) {
+          // 已完成，直接显示
+          renderSummaryContent(result.summary);
+        }
       } catch (error) {
         summaryText.innerHTML = `<div style="text-align: center; color: #ef4444;">错误：${error.message}</div>`;
       }
@@ -1246,32 +1242,106 @@
     // 刷新摘要
     refreshBtn?.addEventListener("click", async () => {
       const date = document.getElementById("page-date")?.textContent?.replace("热门新闻汇总 ", "") || getTodayDateStr();
-      
+
       // 禁用按钮防止重复点击
       refreshBtn.disabled = true;
-      refreshBtn.textContent = "⏳ 刷新中...";
-      
+      refreshBtn.textContent = "⏳ 生成中...";
+
       try {
         const response = await fetch(`/api/regenerate-summary/${date}`, {
           method: "POST",
         });
-        
+
         if (response.ok) {
-          // 重新加载摘要
-          loadSummary(date);
-          showToast("摘要已刷新");
+          showToast("开始生成摘要，请稍候...");
+          // 开始轮询进度
+          startPollingProgress(date);
         } else {
           const error = await response.text();
           showToast(`刷新失败: ${error}`);
+          refreshBtn.disabled = false;
+          refreshBtn.textContent = "🔄 刷新";
         }
       } catch (error) {
         console.error("刷新摘要失败:", error);
         showToast("刷新失败，请重试");
-      } finally {
         refreshBtn.disabled = false;
         refreshBtn.textContent = "🔄 刷新";
       }
     });
+
+    // 轮询进度
+    let pollTimer = null;
+
+    function startPollingProgress(date) {
+      if (pollTimer) clearInterval(pollTimer);
+
+      pollTimer = setInterval(async () => {
+        try {
+          const response = await fetch(`/api/summary-progress/${date}`);
+
+          if (!response.ok) {
+            // 可能是 404，等待一下再试
+            return;
+          }
+
+          const result = await response.json();
+
+          if (result.status === "generating" && result.progress) {
+            // 显示进度
+            const p = result.progress;
+            const percent = Math.round((p.current / p.total) * 100);
+            summaryText.innerHTML = `
+              <div style="text-align: center; color: #9ca3af;">
+                <div style="font-size: 1.5rem; margin-bottom: 12px;">⏳ 生成中...</div>
+                <div style="font-size: 0.875rem;">${p.current}/${p.total} 条摘要</div>
+                <div style="margin-top: 12px; width: 200px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-left: auto; margin-right: auto;">
+                  <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #fbbf24, #f59e0b); transition: width 0.3s;"></div>
+                </div>
+              </div>
+            `;
+          } else if (result.status === "completed" && result.summary) {
+            // 完成了，显示结果
+            clearInterval(pollTimer);
+            pollTimer = null;
+            renderSummaryContent(result.summary);
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = "🔄 刷新";
+            showToast("摘要生成完成");
+          }
+        } catch (error) {
+          console.error("获取进度失败:", error);
+        }
+      }, 3000); // 每 3 秒检查一次
+    }
+
+    // 渲染摘要内容
+    function renderSummaryContent(summaryData) {
+      const template = document.getElementById("summary-item-template");
+      summaryText.innerHTML = "";
+      summaryData.news?.forEach((item, index) => {
+        const fragment = template.content.cloneNode(true);
+        const rankEl = fragment.querySelector(".summary-item-rank");
+        const linkEl = fragment.querySelector("a");
+        const sourceEl = fragment.querySelector(".summary-item-source");
+        const contentEl = fragment.querySelector(".summary-item-content");
+
+        if (rankEl) rankEl.textContent = index + 1;
+        if (linkEl) {
+          linkEl.href = item.url;
+          linkEl.innerHTML = sanitizeTitle(item.title);
+        }
+        if (sourceEl) sourceEl.textContent = `[${item.source_name}]`;
+        if (contentEl && item.summary) {
+          contentEl.innerHTML = item.summary.replace(/\n/g, "<br>");
+        } else if (contentEl) {
+          contentEl.innerHTML = '<span style="color: #ef4444;">摘要生成中...</span>';
+        }
+
+        summaryText.appendChild(fragment);
+      });
+      summaryDataLoaded = true;
+    }
   </script>
 </body>
 

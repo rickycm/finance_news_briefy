@@ -1,23 +1,45 @@
 """Summary generation"""
 
+import asyncio
 import json
 import logging
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Dict
 
 from config import cfg
-from summary.client import generate_summaries
+from summary.client import generate_summaries, generate_summaries_with_progress
 from summary.reader import fetch_contents_batch
 from summary.selector import select_top_news
-from summary.tts import generate_audio
 
 logger = logging.getLogger(__name__)
 
 
+def _write_progress(date: str, current: int, total: int, status: str = "generating"):
+    """Write progress to file for real-time updates"""
+    progress_file = cfg.summaries_dir / f"{date}.progress.json"
+    progress_data = {
+        "date": date,
+        "status": status,
+        "current": current,
+        "total": total,
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    with open(progress_file, "w", encoding="utf-8") as f:
+        json.dump(progress_data, f, ensure_ascii=False)
+
+
+def _clear_progress(date: str):
+    """Clear progress file when generation is done"""
+    progress_file = cfg.summaries_dir / f"{date}.progress.json"
+    if progress_file.exists():
+        progress_file.unlink()
+
+
 async def generate_daily_summary(date: str, top_n: int = 10) -> Dict:
     """
-    Generate daily news summary
+    Generate daily news summary with real-time progress updates
 
     Args:
         date: Date string in format YYYY-MM-DD
@@ -36,6 +58,7 @@ async def generate_daily_summary(date: str, top_n: int = 10) -> Dict:
     selected = select_top_news(date, top_n=top_n)
     if not selected:
         logger.warning("No news selected")
+        _clear_progress(date)
         return {"success": False, "error": "No eligible news found"}
     logger.info(f"Selected {len(selected)} news items")
 
@@ -53,8 +76,14 @@ async def generate_daily_summary(date: str, top_n: int = 10) -> Dict:
         else:
             item["content_file"] = None
 
-    # 生成 AI 摘要
-    news_with_summaries = await generate_summaries(news_with_content)
+    # 初始化进度
+    total_to_generate = len(news_with_content)
+    _write_progress(date, 0, total_to_generate)
+
+    # 生成 AI 摘要（带进度更新）
+    news_with_summaries = await generate_summaries_with_progress(
+        news_with_content, date, total_to_generate
+    )
     summaries_count = sum(1 for item in news_with_summaries if item.get("summary"))
     logger.info(f"Generated {summaries_count}/{len(news_with_summaries)} summaries")
 
@@ -114,14 +143,12 @@ async def generate_daily_summary(date: str, top_n: int = 10) -> Dict:
         json.dump(final_data, f, ensure_ascii=False, indent=2)
     logger.info(f"Summary saved: {output_file}")
 
-    # 生成音频
-    try:
-        text = format_text(final_data)
-        audio_file = cfg.audio_dir / f"{date}.mp3"
-        await generate_audio(text, audio_file)
-        logger.info(f"Audio generated: {audio_file}")
-    except Exception as e:
-        logger.error(f"Failed to generate audio: {e}")
+    # 清除进度文件（已完成）
+    _clear_progress(date)
+
+    # 所有摘要完成后，生成 TTS 音频（同步等待完成）
+    if cfg.enable_tts and summaries_count > 0:
+        await generate_audio_sync(date, final_data)
 
     elapsed_time = time.time() - start_time
     logger.info(
@@ -137,6 +164,28 @@ async def generate_daily_summary(date: str, top_n: int = 10) -> Dict:
         "total_content_length": total_content_length,
         "output_file": str(output_file),
     }
+
+
+async def generate_audio_sync(date: str, data: Dict):
+    """
+    同步生成 TTS 音频（等待所有摘要完成后执行）
+
+    Args:
+        date: 日期字符串
+        data: 摘要数据
+    """
+    from summary.tts import generate_audio
+
+    audio_file = cfg.audio_dir / f"{date}.mp3"
+    text = format_text(data)
+
+    logger.info(f"Starting TTS generation for {date} ({len(text)} chars)")
+
+    try:
+        await generate_audio(text, audio_file)
+        logger.info(f"Audio generated successfully: {audio_file}")
+    except Exception as e:
+        logger.error(f"TTS generation failed for {date}: {e}")
 
 
 def format_text(data: Dict) -> str:

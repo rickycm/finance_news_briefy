@@ -13,6 +13,7 @@ class Config:
 
     # Summary generation
     enable_summary: bool
+    enable_tts: bool
     summary_sources: set
     summary_top_n: int
 
@@ -44,6 +45,7 @@ class Config:
         
         return cls(
             enable_summary=os.getenv("ENABLE_SUMMARY", "0") == "1",
+            enable_tts=os.getenv("ENABLE_TTS", "0") == "1",
             summary_sources=summary_sources,
             summary_top_n=int(os.getenv("SUMMARY_TOP_N", "10")),
             content_fetcher=os.getenv("CONTENT_FETCHER", "newspaper3k"),

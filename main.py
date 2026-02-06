@@ -72,6 +72,45 @@ async def get_summary(date: str):
         raise HTTPException(status_code=500, detail=f"读取摘要数据失败: {str(e)}")
 
 
+@app.get("/api/summary-progress/{date}")
+async def get_summary_progress(date: str):
+    """
+    获取指定日期的摘要生成进度
+    返回当前已生成的摘要（即使未完成）
+    """
+    summary_file = cfg.summaries_dir / f"{date}.json"
+    progress_file = cfg.summaries_dir / f"{date}.progress.json"
+
+    # 检查是否有进度文件
+    if progress_file.exists():
+        try:
+            with open(progress_file, "r", encoding="utf-8") as f:
+                progress_data = json.load(f)
+            return JSONResponse(content={
+                "status": "generating",
+                "progress": progress_data,
+                "summary": None  # 仍在生成中，不返回不完整的摘要
+            })
+        except Exception:
+            pass
+
+    # 检查是否有完整的摘要文件
+    if summary_file.exists():
+        try:
+            with open(summary_file, "r", encoding="utf-8") as f:
+                summary_data = json.load(f)
+            return JSONResponse(content={
+                "status": "completed",
+                "progress": None,
+                "summary": summary_data
+            })
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"读取摘要数据失败: {str(e)}")
+
+    # 都没有找到
+    raise HTTPException(status_code=404, detail=f"未找到 {date} 的摘要数据")
+
+
 @app.post("/api/regenerate-summary/{date}")
 async def regenerate_summary(date: str):
     """

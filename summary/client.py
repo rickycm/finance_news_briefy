@@ -1,5 +1,6 @@
 """AI 客户端模块 - 使用 LiteLLM 统一接口"""
 
+import asyncio
 import logging
 import re
 from typing import List
@@ -15,6 +16,12 @@ logger = logging.getLogger(__name__)
 # 中文文本：约 1.5-2 字符 = 1 token
 # Prompt 本身约 500-1000 tokens，所以内容限制在约 12000 字符（约 6000-7000 tokens）
 MAX_CONTENT_LENGTH = 12000
+
+# 重试配置
+MAX_RETRIES = 3
+INITIAL_DELAY = 1.0  # 初始延迟（秒）
+MAX_DELAY = 60.0  # 最大延迟（秒）
+BACKOFF_MULTIPLIER = 2.0  # 指数退避倍率
 
 # 摘要生成 Prompt 模板
 SUMMARY_PROMPT_TEMPLATE = """你是一个专业的新闻摘要助手。请根据以下内容生成简洁、准确的摘要。
@@ -46,7 +53,7 @@ SUMMARY_PROMPT_TEMPLATE = """你是一个专业的新闻摘要助手。请根据
 
 async def generate_summaries(news_list: List[dict]) -> List[dict]:
     """
-    为每条新闻生成摘要（逐条处理）
+    为每条新闻生成摘要（逐条处理，带重试）
 
     Args:
         news_list: 新闻列表，每个元素包含 title, url, markdown_content 等字段
@@ -62,20 +69,74 @@ async def generate_summaries(news_list: List[dict]) -> List[dict]:
 
     # 逐条处理
     for i, news in enumerate(news_list, 1):
-        logger.debug(f"处理 {i}/{len(news_list)}: {news['title'][:50]}...")
+        logger.info(
+            f"处理 {i}/{len(news_list)}: {news.get('title', 'Unknown')[:50]}..."
+        )
 
         prompt = _build_prompt(news)
 
         try:
-            summary = await _invoke_llm(prompt)
+            summary = await _invoke_llm_with_retry(prompt)
             news_copy = news.copy()
             news_copy["summary"] = summary
         except Exception as e:
-            logger.error(f"LLM 调用失败（第 {i} 条）: {e}")
+            logger.error(f"LLM 调用失败（第 {i} 条，已重试 {MAX_RETRIES} 次）: {e}")
             news_copy = news.copy()
             news_copy["summary"] = ""
 
         results.append(news_copy)
+
+        # 添加请求间隔，避免触发速率限制（每条之间等待 5 秒）
+        if i < len(news_list):
+            await asyncio.sleep(5.0)
+
+    return results
+
+
+async def generate_summaries_with_progress(
+    news_list: List[dict], date: str, total: int
+) -> List[dict]:
+    """
+    为每条新闻生成摘要（带进度更新）
+
+    Args:
+        news_list: 新闻列表
+        date: 日期字符串（用于更新进度）
+        total: 总数量（用于计算进度）
+
+    Returns:
+        带摘要的新闻列表
+    """
+    if not cfg.llm_api_key:
+        logger.error("LLM_API_KEY not set")
+        return news_list
+
+    results = []
+
+    for i, news in enumerate(news_list, 1):
+        logger.info(f"处理 {i}/{len(news_list)}: {news.get('title', 'Unknown')[:50]}...")
+
+        prompt = _build_prompt(news)
+
+        try:
+            summary = await _invoke_llm_with_retry(prompt)
+            news_copy = news.copy()
+            news_copy["summary"] = summary
+        except Exception as e:
+            logger.error(f"LLM 调用失败（第 {i} 条，已重试 {MAX_RETRIES} 次）: {e}")
+            news_copy = news.copy()
+            news_copy["summary"] = ""
+
+        results.append(news_copy)
+
+        # 更新进度
+        from summary.generator import _write_progress
+
+        _write_progress(date, i, total)
+
+        # 添加请求间隔，避免触发速率限制（每条之间等待 5 秒）
+        if i < len(news_list):
+            await asyncio.sleep(5.0)
 
     return results
 
@@ -90,6 +151,57 @@ def _build_prompt(news: dict) -> str:
         content = f"标题：{news['title']}\n\n（无法获取正文内容，请根据标题生成摘要）"
 
     return SUMMARY_PROMPT_TEMPLATE.format(content=content)
+
+
+def _is_rate_limit_error(error: Exception) -> bool:
+    """检测是否是速率限制错误"""
+    error_str = str(error).lower()
+    rate_limit_keywords = [
+        "rate limit",
+        "rateLimit",
+        "rate_limit",
+        "限流",
+        "速率限制",
+        "too many requests",
+        "429",
+    ]
+    return any(keyword in error_str for keyword in rate_limit_keywords)
+
+
+async def _invoke_llm_with_retry(prompt: str) -> str:
+    """
+    调用 LLM 生成摘要（带重试机制）
+
+    Args:
+        prompt: 提示词
+
+    Returns:
+        摘要文本
+    """
+    delay = INITIAL_DELAY
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            return await _invoke_llm(prompt)
+        except Exception as e:
+            is_rate_limit = _is_rate_limit_error(e)
+
+            if attempt == MAX_RETRIES - 1:
+                # 最后一次尝试，直接抛出异常
+                logger.error(f"LLM 调用失败（已重试 {MAX_RETRIES} 次）: {e}")
+                raise
+
+            if is_rate_limit:
+                logger.warning(
+                    f"触发速率限制，{delay:.1f}秒后重试（{attempt + 1}/{MAX_RETRIES}）"
+                )
+            else:
+                logger.warning(
+                    f"LLM 调用失败，{delay:.1f}秒后重试（{attempt + 1}/{MAX_RETRIES}）: {e}"
+                )
+
+            await asyncio.sleep(delay)
+            delay = min(delay * BACKOFF_MULTIPLIER, MAX_DELAY)
 
 
 async def _invoke_llm(prompt: str) -> str:
@@ -119,7 +231,9 @@ async def _invoke_llm(prompt: str) -> str:
 
         # 验证摘要质量
         if summary and len(summary) < 200:
-            logger.warning(f"摘要太短（{len(summary)}字，要求250-300字）: {summary[:100]}...")
+            logger.warning(
+                f"摘要太短（{len(summary)}字，要求250-300字）: {summary[:100]}..."
+            )
 
         return summary
 
