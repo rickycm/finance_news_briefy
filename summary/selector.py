@@ -62,9 +62,10 @@ def extract_news_from_markdown(
                 current_source = None
             continue
 
-        # 匹配新闻条目：序号. [标题](URL)
+        # 匹配新闻条目：序号. [标题](URL) [发布时间]
+        # 发布时间是可选的
         if current_source:
-            match = re.match(r"^(\d+)\.\s+\[(.+?)\]\((.+?)\)$", line)
+            match = re.match(r"^(\d+)\.\s+\[(.+?)\]\((.+?)\)(?:\s+\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\])?$", line)
             if match:
                 rank = int(match.group(1))
                 title = match.group(2)

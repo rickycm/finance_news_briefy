@@ -47,20 +47,31 @@ def aggregate_today():
         return False
 
 
-async def generate_summary():
-    today = datetime.now().strftime("%Y-%m-%d")
-    summary_file = cfg.summaries_dir / f"{today}.json"
+async def generate_summary(date: str | None = None):
+    """
+    生成指定日期的摘要
 
-    if summary_file.exists():
-        logger.debug(f"Summary for {today} already exists, skipping")
-        return
+    Args:
+        date: 日期字符串，格式：YYYY-MM-DD，默认今天
+    """
+    target_date = date or datetime.now().strftime("%Y-%m-%d")
+    summary_file = cfg.summaries_dir / f"{target_date}.json"
+    markdown_file = cfg.data_dir / f"{target_date}.md"
 
+    # 检查 markdown 文件是否存在
+    if not markdown_file.exists():
+        logger.warning(f"Markdown 文件不存在: {markdown_file}")
+        return {"success": False, "error": "数据文件不存在"}
+
+    # 直接生成，不检查是否已存在（因为刷新时会先删除）
     try:
         from summary.generator import generate_daily_summary
 
-        await generate_daily_summary(today, top_n=cfg.summary_top_n)
+        await generate_daily_summary(target_date, top_n=cfg.summary_top_n)
+        return {"success": True}
     except Exception as e:
         logger.error(f"Summary generation error: {e}")
+        return {"success": False, "error": str(e)}
 
 
 async def scheduled_task():
