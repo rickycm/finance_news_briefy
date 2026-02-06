@@ -58,7 +58,7 @@ async def generate_summary():
     try:
         from summary.generator import generate_daily_summary
 
-        await generate_daily_summary(today)
+        await generate_daily_summary(today, top_n=cfg.summary_top_n)
     except Exception as e:
         logger.error(f"Summary generation error: {e}")
 

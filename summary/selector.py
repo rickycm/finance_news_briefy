@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 # 相似度阈值（用于去重）
 SIMILARITY_THRESHOLD = 0.85
 
-SELECTED_SOURCES = {"凤凰网", "财联社"}
+# 默认摘要新闻来源（可在 .env 中通过 SUMMARY_SOURCES 配置）
+DEFAULT_SOURCES = {"华尔街见闻", "财联社", "金十数据"}
 
 
 def calculate_similarity(title1: str, title2: str) -> float:
@@ -19,16 +20,24 @@ def calculate_similarity(title1: str, title2: str) -> float:
     return SequenceMatcher(None, title1.lower(), title2.lower()).ratio()
 
 
-def extract_news_from_markdown(markdown_path: Path) -> Dict[str, List[Dict]]:
+def extract_news_from_markdown(
+    markdown_path: Path,
+    selected_sources: Optional[set] = None,
+) -> Dict[str, List[Dict]]:
     """
     从 Markdown 文件中提取指定源的新闻
 
     Args:
         markdown_path: Markdown 文件路径
+        selected_sources: 要提取的源名称集合，默认使用配置中的值
 
     Returns:
         {source_name: [{"title": "...", "url": "...", "rank": 1}, ...]}
     """
+    if selected_sources is None:
+        from config import cfg
+        selected_sources = cfg.summary_sources
+
     if not markdown_path.exists():
         logger.warning(f"Markdown 文件不存在: {markdown_path}")
         return {}
@@ -46,7 +55,7 @@ def extract_news_from_markdown(markdown_path: Path) -> Dict[str, List[Dict]]:
         match = re.match(r"^##\s+(.+)$", line)
         if match:
             source_name = match.group(1)
-            if source_name in SELECTED_SOURCES:
+            if source_name in selected_sources:
                 current_source = source_name
                 result[current_source] = []
             else:
@@ -95,10 +104,12 @@ def select_top_news(
         - weighted_score: 加权分数（暂时用排名，排名越小分数越高）
     """
     if selected_sources is None:
-        selected_sources = SELECTED_SOURCES
+        from config import cfg
+        selected_sources = cfg.summary_sources
 
     if markdown_path is None:
         from config import cfg
+
         markdown_path = cfg.data_dir / f"{date}.md"
 
     # 从 Markdown 文件提取新闻
@@ -149,7 +160,9 @@ def select_top_news(
             similarity = calculate_similarity(title, selected_title)
             if similarity >= SIMILARITY_THRESHOLD:
                 is_similar = True
-                logger.debug(f"跳过相似新闻: {title} (与 {selected_title} 相似度 {similarity:.2f})")
+                logger.debug(
+                    f"跳过相似新闻: {title} (与 {selected_title} 相似度 {similarity:.2f})"
+                )
                 break
 
         if not is_similar:

@@ -13,6 +13,8 @@ class Config:
 
     # Summary generation
     enable_summary: bool
+    summary_sources: set
+    summary_top_n: int
 
     # Reader API
     reader_api_endpoint: str
@@ -35,8 +37,14 @@ class Config:
     @classmethod
     def from_env(cls) -> "Config":
         """Load configuration from environment variables"""
+        # Parse summary sources (comma-separated)
+        sources_str = os.getenv("SUMMARY_SOURCES", "华尔街见闻,财联社,金十数据")
+        summary_sources = {s.strip() for s in sources_str.split(",") if s.strip()}
+        
         return cls(
             enable_summary=os.getenv("ENABLE_SUMMARY", "0") == "1",
+            summary_sources=summary_sources,
+            summary_top_n=int(os.getenv("SUMMARY_TOP_N", "10")),
             reader_api_endpoint=os.getenv("READER_API_ENDPOINT", "https://api.shuyanai.com/v1/reader"),
             reader_api_key=os.getenv("READER_API_KEY", ""),
             llm_api_key=os.getenv("LLM_API_KEY", ""),

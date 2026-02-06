@@ -81,7 +81,11 @@ async def generate_daily_summary(date: str, top_n: int = 10) -> Dict:
     with open(metadata_file, "w", encoding="utf-8") as f:
         json.dump(metadata, f, ensure_ascii=False, indent=2)
 
-    total_content_length = sum(len(item.get("markdown_content", "")) for item in news_with_summaries if item.get("markdown_content"))
+    total_content_length = sum(
+        len(item.get("markdown_content", ""))
+        for item in news_with_summaries
+        if item.get("markdown_content")
+    )
 
     final_data = {
         "date": date,
@@ -120,7 +124,9 @@ async def generate_daily_summary(date: str, top_n: int = 10) -> Dict:
         logger.error(f"Failed to generate audio: {e}")
 
     elapsed_time = time.time() - start_time
-    logger.info(f"Summary generation completed: {len(news_with_summaries)} items, {summaries_count} summaries, elapsed: {elapsed_time:.2f}s")
+    logger.info(
+        f"Summary generation completed: {len(news_with_summaries)} items, {summaries_count} summaries, elapsed: {elapsed_time:.2f}s"
+    )
 
     return {
         "success": True,
