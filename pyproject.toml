@@ -12,4 +12,6 @@ dependencies = [
     "litellm>=1.80.0",
     "python-dotenv>=1.2.1",
     "edge-tts>=7.2.3",
+    "newspaper3k>=0.2.0",
+    "lxml[html_clean]>=5.0.0",
 ]

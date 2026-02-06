@@ -16,7 +16,8 @@ class Config:
     summary_sources: set
     summary_top_n: int
 
-    # Reader API
+    # Content fetcher: "reader_api" or "newspaper3k"
+    content_fetcher: str
     reader_api_endpoint: str
     reader_api_key: str
 
@@ -45,6 +46,7 @@ class Config:
             enable_summary=os.getenv("ENABLE_SUMMARY", "0") == "1",
             summary_sources=summary_sources,
             summary_top_n=int(os.getenv("SUMMARY_TOP_N", "10")),
+            content_fetcher=os.getenv("CONTENT_FETCHER", "newspaper3k"),
             reader_api_endpoint=os.getenv("READER_API_ENDPOINT", "https://api.shuyanai.com/v1/reader"),
             reader_api_key=os.getenv("READER_API_KEY", ""),
             llm_api_key=os.getenv("LLM_API_KEY", ""),
