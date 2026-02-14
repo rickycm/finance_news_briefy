@@ -12,6 +12,7 @@ from config import cfg
 from logger.logging import setup_logger
 from scheduler import scheduled_task
 from web.render import render_page
+from web.rss_render import render_rss_page  # Import RSS renderer
 
 setup_logger()
 logger = logging.getLogger(__name__)
@@ -55,6 +56,18 @@ async def index(date: str | None = Query(None, description="日期，格式：YY
         return HTMLResponse(content=html_content)
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/rss", response_class=HTMLResponse)
+async def rss_index(date: str | None = Query(None, description="日期，格式：YYYY-MM-DD")):
+    """RSS 新闻订阅页面"""
+    try:
+        html_content = render_rss_page(date)
+        return HTMLResponse(content=html_content)
+    except Exception as e:
+        logger.error(f"Error rendering RSS page: {e}")
+        # Return simple error or empty page if fail
+        return HTMLResponse(content=f"Error rendering RSS page: {str(e)}", status_code=500)
 
 
 @app.get("/api/summary/{date}")

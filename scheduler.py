@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+import asyncio
 
 import fetcher  # noqa: F401 - Register all fetchers
 from config import cfg
@@ -11,40 +12,60 @@ logger = logging.getLogger(__name__)
 
 
 async def fetch_all_sources():
-    """Fetch all data sources"""
+    """Fetch all data sources sequentially and update aggregator immediately"""
     source_ids = FetcherRegistry.list_source_ids()
     logger.info(f"Fetching {len(source_ids)} sources...")
 
-    storage = CacheStorage()
+    # Initialize aggregator early
+    aggregator = DailyAggregator()
+
     success_count = 0
     total_items = 0
 
     for source_id in source_ids:
         try:
+            # Use registry to get fetcher instance
+            # Note: FetcherRegistry.get creates a NEW instance each time?
+            # Or reuses? If it reuses, we need to check if it's stateful.
+            # Assuming stateless or new instance.
             fetcher_instance = FetcherRegistry.get(source_id)
-            items = await fetcher_instance.fetch()
-            storage.save(source_id, items)
-            total_items += len(items)
-            success_count += 1
+            if not fetcher_instance:
+                logger.warning(f"Fetcher not found for source_id: {source_id}")
+                continue
+
+            logger.info(f"Fetching source: {source_id}")
+            
+            # Add simple timeout protection (300s per source to allow linear translation)
+            # Increased from 180s to 300s to allow more time for slow API translations
+            items = await asyncio.wait_for(fetcher_instance.fetch(), timeout=300)
+            
+            if items:
+                # Save to cache storage (JSON files in temp dir)
+                storage = CacheStorage()
+                storage.save(source_id, items)
+                
+                count = len(items)
+                total_items += count
+                success_count += 1
+                logger.info(f"✅ {source_id}: Fetched {count} items")
+                
+                # Immediate aggregation update (incremental)
+                # This ensures the page shows data as it comes in
+                try:
+                    today = datetime.now().strftime("%Y-%m-%d")
+                    aggregator.generate(today)
+                except Exception as agg_err:
+                    logger.warning(f"Incremental aggregation failed: {agg_err}")
+            else:
+                logger.info(f"ℹ️ {source_id}: No items fetched (or empty)")
+                
+        except asyncio.TimeoutError:
+             logger.error(f"❌ {source_id}: Timeout fetching (300s)")
         except Exception as e:
             logger.error(f"❌ {source_id}: {e}")
 
-    logger.info(f"Fetch completed: {success_count}/{len(source_ids)} succeeded, {total_items} items total")
+    logger.info(f"Fetch completed: {success_count}/{len(source_ids)} sources succeeded, {total_items} items total")
     return success_count > 0
-
-
-def aggregate_today():
-    today = datetime.now().strftime("%Y-%m-%d")
-    logger.info(f"Aggregating data for {today}...")
-
-    try:
-        aggregator = DailyAggregator()
-        aggregator.generate(today)
-        logger.info(f"✅ Aggregation completed for {today}")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Aggregation failed for {today}: {e}")
-        return False
 
 
 async def generate_summary(date: str | None = None):
@@ -80,11 +101,17 @@ async def scheduled_task():
     fetch_success = await fetch_all_sources()
 
     if fetch_success:
-        aggregate_today()
+        # Final aggregation (redundant but safe)
+        try:
+            today = datetime.now().strftime("%Y-%m-%d")
+            aggregator = DailyAggregator()
+            aggregator.generate(today)
+        except Exception as e:
+            logger.error(f"Final aggregation failed: {e}")
 
         if cfg.enable_summary:
             await generate_summary()
     else:
-        logger.warning("Fetch failed, skipping aggregation")
+        logger.warning("Fetch failed, skipping final steps")
 
     logger.info("Scheduled task completed")

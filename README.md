@@ -38,6 +38,8 @@ uv sync
 
 # Run the service
 uv run main.py
+
+nohup uv run main.py > app.log 2>&1 &
 ```
 
 Visit http://127.0.0.1:8000 to view the dashboard.

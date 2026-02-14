@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Briefy · RSS News Feed</title>
+  <style>
+    /* Dark Theme Base (Similar to trending.html) */
+    :root {
+      --bg-color: #0f0f0f;
+      --card-bg: rgba(255, 255, 255, 0.05);
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --accent-color: #fbbf24;
+      --border-color: rgba(251, 191, 36, 0.2);
+    }
+    
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, system-ui, sans-serif;
+      background: linear-gradient(135deg,
+          #0f0f0f 0%,
+          #3d2817 50%,
+          #0f0f0f 100%);
+      color: var(--text-main);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 15, 15, 0.8);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-decoration: none;
+    }
+
+    .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: color 0.2s;
+    }
+    
+    .nav-links a:hover {
+      color: var(--accent-color);
+    }
+
+    #date-display {
+        color: var(--accent-color);
+        font-weight: 500;
+        font-size: 0.9rem;
+        border: 1px solid var(--border-color);
+        padding: 4px 10px;
+        border-radius: 4px;
+        background: rgba(251, 191, 36, 0.05);
+    }
+
+    main {
+      padding: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .news-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .news-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 1.25rem;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      height: auto; /* Allow expansion */
+      min-height: 200px;
+    }
+    
+    .news-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .news-card:hover {
+      transform: translateY(-4px);
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      border-color: var(--border-color);
+    }
+    
+    .news-card:hover::before {
+        opacity: 1;
+    }
+    
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .source-tag {
+        background: rgba(251, 191, 36, 0.1);
+        color: var(--accent-color);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        text-transform: uppercase;
+        max-width: 60%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .time-tag {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+    }
+
+    .news-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      line-height: 1.5;
+    }
+    
+    .news-title a {
+      color: var(--text-main);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    
+    .news-title a:hover {
+      color: var(--accent-color);
+    }
+    
+    .original-title {
+       font-size: 0.85rem;
+       color: #6b7280;
+       margin-top: 0.5rem;
+       margin-bottom: 1rem;
+       line-height: 1.4;
+       background: rgba(0,0,0,0.2);
+       padding: 8px;
+       border-radius: 6px;
+       border-left: 2px solid var(--border-color);
+    }
+    
+    .news-summary {
+        font-size: 0.9rem;
+        color: #d1d5db;
+        margin-bottom: 1rem;
+        line-height: 1.6;
+        cursor: pointer;
+        position: relative;
+    }
+
+    /* Collapsed state (default) */
+    .news-summary.collapsed {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Expanded state */
+    .news-summary.expanded {
+        display: block;
+        overflow: visible;
+    }
+
+    /* Toggle indicator */
+    .news-summary.collapsed::after {
+        content: "🔽 展开";
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(90deg, transparent, #1a1a1a 20%);
+        padding-left: 20px;
+        color: var(--accent-color);
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+
+    .news-footer {
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      justify-content: flex-end;
+    }
+    
+    .read-more {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: color 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .read-more:hover {
+        color: var(--accent-color);
+    }
+
+    @media (max-width: 768px) {
+        header { padding: 1rem; }
+        main { padding: 1rem; }
+        .news-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/rss" class="brand">Briefy <span style="font-weight:300; opacity:0.8">RSS</span></a>
+    <div class="nav-links">
+      <span id="date-display"></span>
+      <a href="/">← 返回热榜</a>
+    </div>
+  </header>
+
+  <main id="content">
+    <div id="loading" style="text-align: center; color: var(--text-muted); padding: 4rem;">
+      <div style="font-size: 2rem; margin-bottom: 1rem;">📡</div>
+      正在加载订阅源...
+    </div>
+  </main>
+
+  <script>
+    // Injected data placeholder
+    let serverData = null;
+    try {
+        serverData = __RSS_DATA__;
+    } catch(e) {
+        console.error("Failed to parse server data", e);
+    }
+    
+    // Toggle summary function for accordion effect
+    function toggleSummary(event, element) {
+        // Prevent event propagation if needed
+        event.stopPropagation();
+        
+        // Check if current element is already expanded
+        const isExpanded = element.classList.contains('expanded');
+        
+        // Collapse ALL expanded summaries first
+        document.querySelectorAll('.news-summary.expanded').forEach(el => {
+            el.classList.remove('expanded');
+            el.classList.add('collapsed');
+        });
+        
+        // If the clicked element wasn't expanded, expand it now
+        // (If it WAS expanded, it's now collapsed by the loop above, which is correct toggle behavior)
+        if (!isExpanded) {
+            element.classList.remove('collapsed');
+            element.classList.add('expanded');
+        }
+    }
+
+    function renderPage() {
+      const container = document.getElementById('content');
+      const dateDisplay = document.getElementById('date-display');
+      
+      if (!serverData || !serverData.sources || serverData.sources.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 4rem; color: var(--text-muted);">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
+                <h3>暂无 RSS 数据</h3>
+                <p>可能是今天还没有更新，或者配置有误。</p>
+            </div>
+        `;
+        return;
+      }
+      
+      if (serverData.selected_date) {
+        dateDisplay.textContent = serverData.selected_date;
+      }
+      
+      // Flatten all items into a single array
+      let allItems = [];
+      serverData.sources.forEach(source => {
+          if (!source.items) return;
+          source.items.forEach(item => {
+              // Attach source info to item for display
+              item.sourceName = source.name;
+              item.sourceId = source.id;
+              allItems.push(item);
+          });
+      });
+      
+      // Sort by publish_time descending (newest first)
+      allItems.sort((a, b) => {
+          const timeA = new Date(a.publish_time || 0);
+          const timeB = new Date(b.publish_time || 0);
+          return timeB - timeA;
+      });
+
+      const grid = document.createElement('div');
+      grid.className = 'news-grid';
+      
+      allItems.forEach(item => {
+        let displayTitle = item.title;
+        let originalBlock = '';
+        
+        // Check for dual-language title pattern: "Chinese Title (Original Title)"
+        // or "Chinese Title（Original Title）"
+        const dualMatch = item.title.match(/^(.+?)\s*[（(](.+?)[）)]$/);
+        
+        if (dualMatch) {
+            displayTitle = dualMatch[1];
+            originalBlock = `<div class="original-title">${dualMatch[2]}</div>`;
+        }
+        
+        // Format time
+        let timeDisplay = item.publish_time || '刚刚';
+        const today = new Date().toISOString().slice(0, 10);
+        if (timeDisplay.startsWith(today)) {
+            timeDisplay = timeDisplay.slice(11); // Show only HH:MM
+        }
+        
+        // Summary
+        let summaryText = item.description || '';
+        // Simple HTML stripping
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = summaryText;
+        let cleanSummary = tempDiv.textContent || tempDiv.innerText || '';
+        
+        // If content is very short, no need to collapse
+        const isLong = cleanSummary.length > 100;
+        const summaryClass = isLong ? 'news-summary collapsed' : 'news-summary expanded';
+        // Only add onclick handler if it's collapsible
+        const onClickAttr = isLong ? 'onclick="toggleSummary(event, this)"' : '';
+
+        const card = document.createElement('div');
+        card.className = 'news-card';
+        card.innerHTML = `
+          <div class="card-header">
+            <span class="source-tag" title="${item.sourceName}">${item.sourceName}</span>
+            <span class="time-tag">${timeDisplay}</span>
+          </div>
+          
+          <div class="news-title">
+            <a href="${item.url}" target="_blank" rel="noopener">${displayTitle}</a>
+          </div>
+          
+          ${originalBlock}
+          
+          <div class="${summaryClass}" ${onClickAttr}>
+            ${cleanSummary || '暂无摘要'}
+          </div>
+          
+          <div class="news-footer">
+            <a href="${item.url}" target="_blank" class="read-more">阅读原文 ↗</a>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+      
+      container.innerHTML = '';
+      container.appendChild(grid);
+    }
+
+    document.addEventListener('DOMContentLoaded', renderPage);
+  </script>
+</body>
+</html>

@@ -782,10 +782,15 @@
         <h1>Briefy</h1>
         <p>AI 驱动的每日简报</p>
       </a>
-      <form class="date-picker" action="" method="get">
-        <label for="date-input">选择日期：</label>
-        <input type="date" id="date-input" name="date" />
-      </form>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <a href="/rss" style="text-decoration: none; color: #fbbf24; font-size: 0.9rem; font-weight: 500; padding: 8px 16px; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.2); border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
+          <span>📡</span> RSS 订阅
+        </a>
+        <form class="date-picker" action="" method="get">
+          <label for="date-input">选择日期：</label>
+          <input type="date" id="date-input" name="date" />
+        </form>
+      </div>
     </div>
   </header>
 

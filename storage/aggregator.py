@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from fetcher.models import Trend
 
@@ -19,6 +19,7 @@ CATEGORY_ORDER = ["news", "finance", "tech"]
 # 每个源返回的最大条数
 MAX_ITEMS_PER_SOURCE = 50
 
+# 原始配置
 SOURCES_CONFIG = {
     "cailian": {
         "name": "财联社",
@@ -28,23 +29,40 @@ SOURCES_CONFIG = {
         "name": "华尔街见闻",
         "order": 2,
     },
-    "baidu": {
-        "name": "百度热搜",
-        "order": 7,  # 移到最后一个
-    },
     "jin10": {
         "name": "金十数据",
-        "order": 4,
+        "order": 3,
     },
     "ifeng": {
         "name": "凤凰网",
-        "order": 5,
+        "order": 4,
     },
     "toutiao": {
         "name": "今日头条",
+        "order": 5,
+    },
+    "baidu": {
+        "name": "百度热搜",
         "order": 6,
     },
 }
+
+# 动态加载 RSS 源配置
+# 为了不破坏原有逻辑，我们将 RSS 源配置动态合并到 SOURCES_CONFIG
+try:
+    import yaml
+    with open("config/rss_sources.yaml", "r", encoding="utf-8") as f:
+        rss_data = yaml.safe_load(f)
+        if rss_data and "sources" in rss_data:
+            # RSS 源从 100 开始排序
+            base_order = 100
+            for idx, s in enumerate(rss_data["sources"]):
+                SOURCES_CONFIG[s["id"]] = {
+                    "name": s["name"],
+                    "order": base_order + idx
+                }
+except Exception as e:
+    logger.warning(f"Failed to load RSS sources for aggregator: {e}")
 
 
 def aggregate_source_trends(items_list: List[List[Trend]]) -> List[Trend]:
@@ -69,7 +87,10 @@ def aggregate_source_trends(items_list: List[List[Trend]]) -> List[Trend]:
                     "total_rank": 0,
                     "scores": [],
                 }
-
+            # Update description if newer one is longer/better? Just overwrite for now
+            if trend.description:
+                topic_stats[topic_id]["description"] = trend.description
+                
             topic_stats[topic_id]["count"] += 1
             topic_stats[topic_id]["total_rank"] += rank
             if trend.score is not None:
@@ -97,7 +118,7 @@ def aggregate_source_trends(items_list: List[List[Trend]]) -> List[Trend]:
                 score=final_score,
             )
         )
-
+    
     return sorted(result, key=lambda x: x.score or 0, reverse=True)[:MAX_ITEMS_PER_SOURCE]
 
 
@@ -149,19 +170,42 @@ class DailyAggregator:
             logger.warning(f"日期 {date} 没有数据")
             return
 
-        markdown = self._generate_markdown(date, all_data)
+        markdown, all_sources_list = self._generate_markdown(date, all_data)
 
         output_file = self.output_path / f"{date}.md"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(markdown)
+            
+        # Also save full data to JSON for rich frontend features (like RSS summary)
+        try:
+            from dataclasses import asdict
+            json_output = self.output_path / f"{date}_full.json"
+            # Convert Trend objects to dicts
+            full_data_serializable = []
+            for source_data in all_sources_list:
+                 items_dicts = []
+                 for item in source_data["ranked_items"]:
+                     items_dicts.append(asdict(item))
+                 
+                 full_data_serializable.append({
+                     "source_id": source_data["source_id"],
+                     "name": source_data["name"],
+                     "order": source_data["order"],
+                     "items": items_dicts
+                 })
+            
+            with open(json_output, "w", encoding="utf-8") as f:
+                json.dump({"date": date, "sources": full_data_serializable}, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save full JSON: {e}")
 
         total_sources = len(all_data)
         total_items = sum(len(data["ranked_items"]) for data in all_data.values())
         logger.info(f"✅ Generated: {output_file} ({total_sources} sources, {total_items} items)")
 
-    def _generate_markdown(self, date: str, all_data: Dict[str, Dict]) -> str:
-        """生成 Markdown 内容"""
+    def _generate_markdown(self, date: str, all_data: Dict[str, Dict]) -> Tuple[str, List[Dict]]:
+        """生成 Markdown 内容，并返回排序后的数据源列表"""
         all_sources = []
 
         for source_id, data in all_data.items():
@@ -191,4 +235,4 @@ class DailyAggregator:
                 lines.append(f"{i}. [{item.title}]({item.url}){pt_str}\n")
             lines.append("\n")
 
-        return "".join(lines)
+        return "".join(lines), all_sources

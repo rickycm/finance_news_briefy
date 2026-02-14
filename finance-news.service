@@ -1,0 +1,14 @@
+[Unit]
+Description=Finance News Briefy RSS Service
+After=network.target
+
+[Service]
+Type=simple
+User=ricky
+WorkingDirectory=/home/ricky/webservice/finance_news_briefy
+ExecStart=/home/ricky/.local/bin/uv run main.py
+Restart=always
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

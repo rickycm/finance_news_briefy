@@ -1,7 +1,14 @@
 """手动运行聚合器生成markdown"""
-import asyncio
+import sys
+from datetime import datetime
 from storage.aggregator import DailyAggregator
 
-aggregator = DailyAggregator()
-aggregator.generate("2026-02-06")
-print("✅ Markdown generated successfully")
+if __name__ == "__main__":
+    date = datetime.now().strftime("%Y-%m-%d")
+    if len(sys.argv) > 1:
+        date = sys.argv[1]
+    
+    print(f"Aggregating for date: {date}")
+    aggregator = DailyAggregator()
+    aggregator.generate(date)
+    print("✅ Markdown generated successfully")
